@@ -1,0 +1,69 @@
+---
+title: "Survival"
+output: pdf_document
+---
+
+```{r}
+
+## Add the names of all the packages that you used in the pipeline to list.of.packages
+list.of.packages <- c("survival", "KMsurv", "ggplot2", "ggfortify", "stats", "MASS")
+
+## Automatically install any necessary packages that have not already been installed
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+
+library("survival")
+library("KMsurv")
+library("ggplot2")
+library("ggfortify")
+library("stats")
+library("MASS")
+
+data("burn")
+burns <- burn[, -1]
+burns_straph <- burns[, -c(16, 17)] #Removed straph indicator
+burns_ex <- burns[, -c(12,13)] #Removed excision indicator
+burns_antibiotic <- burns[, -c(14, 15)] #Removed antibiotic treatment indicator
+
+```
+
+PCA, Ridge+Random Forest for feature selection
+```{r}
+#Factor analysis instead of PCA due to mixed data
+
+straph_pr <- prcomp(burns_straph, scale. = TRUE)
+excision_pr <- prcomp(burns_ex, scale. = TRUE)
+antibiotic_pr <- prcomp(burns_antibiotic, scale. = TRUE)
+
+prcompvariance <- function(prcomp_df, title){
+  pr_stdev <- prcomp_df$sdev
+  pr_var <- pr_stdev^2
+  var_prop <- pr_var/sum(pr_var) #Proportional Variance
+  cumplot <- plot(cumsum(var_prop), xlab = "Principal Component", ylab = "Cumulative Proportion of Variance", main = title, type = "b")
+  return(cumplot)
+}
+
+prcompvariance(straph_pr, "straphylocous aureaus infection")
+prcompvariance(excision_pr, "prophylactic antibiotic treatment")
+prcompvariance(antibiotic_pr, "excision")
+```
+
+#Cox Model with PCA Reduction
+```{r}
+
+excision_cox <- coxph(Surv(burn$T1, burn$D1) ~ ., data=burns_ex)
+summary(excision_cox)
+AIC(excision_cox)
+BIC(excision_cox)
+summary(res.coxmultiex)
+
+excisionsurv <- survfit(excision_cox)
+plot(excisionsurv)
+
+#Using stepAIC 
+stepAIC(excision_cox)
+
+```
+
+
+
